@@ -88,14 +88,14 @@ public class Cliente {
                             System.out.println("Digite a quantidade de mensagens a enviar:");
                             String repeticoesStr = teclado.readLine();
                             int repeticoes = Integer.parseInt(repeticoesStr);
-                            out.writeUTF(repeticoesStr);
+                            out.writeInt(repeticoes);
                             int i = 0;
                             while (i<repeticoes) {
                                 System.out.println("Digite a chave:");
                                 String chaveTexto = teclado.readLine();
-                                byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
-                                out.writeInt(chaveBytes.length); // Envia o tamanho do array de bytes
-                                out.write(chaveBytes);
+                                //byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
+                                //out.writeInt(chaveBytes.length); // Envia o tamanho do array de bytes
+                                out.writeUTF(chaveTexto);
 
                                 System.out.println("Digite o texto:");
                                 String valorTexto = teclado.readLine();
@@ -121,6 +121,28 @@ public class Cliente {
                                 System.out.println("Resposta do servidor: " + new String(respostaBytes));
                             } else {
                                 System.out.println("Chave não encontrada no servidor.");
+                            }
+                        }
+                        else if (comandoTipo.equals("2")) {
+                            System.out.println("Quantas chaves deseja consultar?");
+                            int quantidade = Integer.parseInt(teclado.readLine());
+                            out.writeInt(quantidade);
+
+                            for (int i = 0; i < quantidade; i++) {
+                                System.out.println("Digite a chave:");
+                                String chave = teclado.readLine();
+                                out.writeUTF(chave);
+                            }
+
+                            int tamanhoResposta = in.readInt();
+                            System.out.println("Número de pares chave-valor encontrados: " + tamanhoResposta);
+                            
+                            for (int i = 0; i < tamanhoResposta; i++) {
+                                String chave = in.readUTF();
+                                int valorTamanho = in.readInt();
+                                byte[] valorBytes = new byte[valorTamanho];
+                                in.readFully(valorBytes);
+                                System.out.println("Chave: " + chave + ", Valor: " + new String(valorBytes));
                             }
                         }
                     }
