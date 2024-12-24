@@ -150,8 +150,15 @@ public class Cliente {
 
                 //leitorServidor.interrupt(); // Interrompe a thread de leitura ao sair
             }
-        } catch (IOException e) {
+        } catch (EOFException e) {
+            System.out.println("Servidor fechou a conexão.");
+
+        } catch (SocketException e) {
+            System.out.println("Erro de conexão. O servidor pode ter desconectado.");
+        
+        }catch (IOException e) {
             e.printStackTrace();
         }
+        
     }
 }

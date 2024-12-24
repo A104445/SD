@@ -72,6 +72,9 @@ public class ClienteHandler implements Runnable {
                 else if (comandoTipo.equals("2")) { // Multipla
                     int repeticoes = in.readInt();
 
+                    Lock lock = ServidorArmazenamento.getLock();
+                    lock.lock(); // Adquire o lock
+                    try{
                     for (int i = 0; i < repeticoes; i++){
                         String chave = in.readUTF(); // Lê a chave
                         int tamanho = in.readInt(); // Lê o tamanho do array de bytes
@@ -79,19 +82,18 @@ public class ClienteHandler implements Runnable {
                         in.readFully(valor); // Lê os bytes do cliente
                         
                         // Lock para garantir a segurança do acesso ao armazenamento
-                        Lock lock = ServidorArmazenamento.getLock();
-                        lock.lock(); // Adquire o lock
-                        try {
                             ServidorArmazenamento.getArmazenamento().put(chave, valor);
-                        } finally {
-                            lock.unlock(); // Libera o lock
-                        } 
 
                         //out.writeUTF("Par chave-valor armazenado com sucesso.");
                         System.out.println("Escrita: [" + chave + "] = " + new String(valor));
+                        }
+                    }
+                        finally {
+                            lock.unlock(); // Libera o lock
+                        } 
                     }
                 }
-            }
+            
             if (comando.equals("2")) { // Leitura
                 if (comandoTipo.equals("1")) { // Simples
                     String chave = in.readUTF(); // Lê a chave
@@ -117,24 +119,25 @@ public class ClienteHandler implements Runnable {
                     int repeticoes = in.readInt(); // Número de chaves fornecidas pelo cliente~
                     Map<String, byte[]> resultados = new HashMap<>(); // Armazena os pares chave-valor
 
-                    for (int i = 0; i < repeticoes; i++) {
+                    Lock lock = ServidorArmazenamento.getLock();
+                    lock.lock();
+
+                    try{
+                        for (int i = 0; i < repeticoes; i++) {
                         String chave = in.readUTF(); // Lê a chave enviada pelo cliente
                     
                         // Lock para garantir acesso seguro ao armazenamento
-                        Lock lock = ServidorArmazenamento.getLock();
-                        lock.lock();
-                        try {
                             byte[] valor = ServidorArmazenamento.getArmazenamento().get(chave); // Busca o valor
                             if (valor != null) {
                                 resultados.put(chave, valor); // Adiciona ao mapa se a chave existe
                             } else {
                                 System.out.println("Leitura: Chave não encontrada - " + chave);
                             }
+                        }
                         } finally {
                             lock.unlock();
                         }
-                    }
-                
+                    
                     // Enviar os resultados ao cliente
                     out.writeInt(resultados.size()); // Envia o número de pares encontrados
                     for (Map.Entry<String, byte[]> entrada : resultados.entrySet()) {
