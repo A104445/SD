@@ -18,7 +18,7 @@ public class Servidor {
 
             while (true) {
                 Socket socket = serverSocket.accept();
-                socket.setSoTimeout(10000);
+                socket.setSoTimeout(30000);
                 System.out.println("Cliente conectado: " + socket.getInetAddress());
 
                 new Thread(() -> {

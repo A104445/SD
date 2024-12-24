@@ -6,6 +6,7 @@ import java.util.concurrent.locks.Lock;
 
 public class ClienteHandler implements Runnable {
     private final Socket socket;
+    private static final long TIMEOUT = 120000;
 
     public ClienteHandler(Socket socket) {
         this.socket = socket;
@@ -13,28 +14,34 @@ public class ClienteHandler implements Runnable {
 
     @Override
     public void run() {
+        long start = System.currentTimeMillis();
+        boolean autenticado = false;
+
         try (
                 DataInputStream in = new DataInputStream(socket.getInputStream());
                 DataOutputStream out = new DataOutputStream(socket.getOutputStream())
         ) {
-            // Autenticação simples
-            String username = in.readUTF();
-            String password = in.readUTF();
-
-            if (autenticar(username, password)) {
-                out.writeUTF("Autenticação bem-sucedida. Bem-vindo!");
-                System.out.println("Cliente autenticado: " + username);
-
-                // Após autenticação, processa comandos do cliente
-                while(true){
-                    processarComandos(in, out);
+            // Autenticação (login ou registro)
+            while (!autenticado && (System.currentTimeMillis() - start) < TIMEOUT) {
+                try {
+                    autenticado = autenticarCliente(in, out);
+                } catch (Exception e) {
+                    // Mantém a conexão para novas tentativas
                 }
-            } else {
-                out.writeUTF("Autenticação falhou. Conexão encerrada.");
-                System.out.println("Falha na autenticação para: " + username);
+            }
+
+            // Se chegou até aqui, o cliente está autenticado ou o tempo excedeu
+            if (!autenticado) {
+                System.out.println("Tempo excedido para autenticação.");
+                return;
+            }
+
+            // Se chegou até aqui, o cliente está autenticado
+            while (true) {
+                processarComandos(in, out);
             }
         } catch (IOException e) {
-            System.out.println("Erro no cliente: " + e.getMessage());
+            System.out.println("Encerrando conexão: " + e.getMessage());
         } finally {
             try {
                 socket.close();
@@ -55,7 +62,7 @@ public class ClienteHandler implements Runnable {
                     int tamanho = in.readInt(); // Lê o tamanho do array de bytes
                     byte[] valor = new byte[tamanho];
                     in.readFully(valor); // Lê os bytes do cliente
-    
+
                     // Lock para garantir a segurança do acesso ao armazenamento
                     Lock lock = ServidorArmazenamento.getLock();
                     lock.lock(); // Adquire o lock
@@ -74,26 +81,25 @@ public class ClienteHandler implements Runnable {
 
                     Lock lock = ServidorArmazenamento.getLock();
                     lock.lock(); // Adquire o lock
-                    try{
-                    for (int i = 0; i < repeticoes; i++){
-                        String chave = in.readUTF(); // Lê a chave
-                        int tamanho = in.readInt(); // Lê o tamanho do array de bytes
-                        byte[] valor = new byte[tamanho];
-                        in.readFully(valor); // Lê os bytes do cliente
-                        
-                        // Lock para garantir a segurança do acesso ao armazenamento
+                    try {
+                        for (int i = 0; i < repeticoes; i++){
+                            String chave = in.readUTF(); // Lê a chave
+                            int tamanho = in.readInt(); // Lê o tamanho do array de bytes
+                            byte[] valor = new byte[tamanho];
+                            in.readFully(valor); // Lê os bytes do cliente
+                            
+                            // Lock para garantir a segurança do acesso ao armazenamento
                             ServidorArmazenamento.getArmazenamento().put(chave, valor);
 
-                        //out.writeUTF("Par chave-valor armazenado com sucesso.");
-                        System.out.println("Escrita: [" + chave + "] = " + new String(valor));
+                            //out.writeUTF("Par chave-valor armazenado com sucesso.");
+                            System.out.println("Escrita: [" + chave + "] = " + new String(valor));
                         }
-                    }
-                        finally {
-                            lock.unlock(); // Libera o lock
-                        } 
-                    }
+                    } finally {
+                        lock.unlock(); // Libera o lock
+                    } 
                 }
-            
+            }
+
             if (comando.equals("2")) { // Leitura
                 if (comandoTipo.equals("1")) { // Simples
                     String chave = in.readUTF(); // Lê a chave
@@ -122,11 +128,11 @@ public class ClienteHandler implements Runnable {
                     Lock lock = ServidorArmazenamento.getLock();
                     lock.lock();
 
-                    try{
+                    try {
                         for (int i = 0; i < repeticoes; i++) {
-                        String chave = in.readUTF(); // Lê a chave enviada pelo cliente
-                    
-                        // Lock para garantir acesso seguro ao armazenamento
+                            String chave = in.readUTF(); // Lê a chave enviada pelo cliente
+
+                            // Lock para garantir acesso seguro ao armazenamento
                             byte[] valor = ServidorArmazenamento.getArmazenamento().get(chave); // Busca o valor
                             if (valor != null) {
                                 resultados.put(chave, valor); // Adiciona ao mapa se a chave existe
@@ -134,10 +140,10 @@ public class ClienteHandler implements Runnable {
                                 System.out.println("Leitura: Chave não encontrada - " + chave);
                             }
                         }
-                        } finally {
-                            lock.unlock();
-                        }
-                    
+                    } finally {
+                        lock.unlock();
+                    }
+
                     // Enviar os resultados ao cliente
                     out.writeInt(resultados.size()); // Envia o número de pares encontrados
                     for (Map.Entry<String, byte[]> entrada : resultados.entrySet()) {
@@ -147,7 +153,6 @@ public class ClienteHandler implements Runnable {
                         out.write(valor); // Envia os bytes do valor
                     }
                 }
-
             }
 
             if (comando.equals("0")) {
@@ -156,7 +161,35 @@ public class ClienteHandler implements Runnable {
         }
     }
 
-    private boolean autenticar(String username, String password) {
-        return "admin".equals(username) && "1234".equals(password);
+    private boolean autenticarCliente(DataInputStream in, DataOutputStream out) throws IOException {
+        // Lê se o cliente quer 'login' ou 'register'
+        String action = in.readUTF(); // "login" ou "register"
+        String username = in.readUTF();
+        String password = in.readUTF();
+
+        if ("register".equalsIgnoreCase(action)) {
+            boolean success = ServidorUsuarios.registerUser(username, password);
+            if (success) {
+                out.writeUTF("Registro bem-sucedido. Agora faça login.");
+            } else {
+                out.writeUTF("Falha no registro. Usuário já existe.");
+            }
+            return false;
+        } 
+        else if ("login".equalsIgnoreCase(action)) {
+            if (ServidorUsuarios.authenticate(username, password)) {
+                out.writeUTF("Autenticação bem-sucedida. Bem-vindo!");
+                System.out.println("Cliente autenticado: " + username);
+                return true;
+            } else {
+                out.writeUTF("Autenticação falhou.");
+                System.out.println("Falha na autenticação para: " + username);
+                return false;
+            }
+        } 
+        else {
+            out.writeUTF("Ação inválida.");
+            return false;
+        }
     }
 }

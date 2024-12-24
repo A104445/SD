@@ -15,34 +15,35 @@ public class Cliente {
             BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
 
             // Comunicação com o servidor
-            System.out.println("Digite o nome de usuário:");
-            String username = teclado.readLine();
-            out.writeUTF(username);
+            boolean autenticado = false;
+            while (!autenticado) {
+                System.out.println("Deseja fazer 'login' ou 'register'?");
+                String action = teclado.readLine(); // "login" ou "register"
+                out.writeUTF(action);
 
-            System.out.println("Digite a senha:");
-            String password = teclado.readLine();
-            out.writeUTF(password);
+                System.out.println("Digite o nome de usuário:");
+                String username = teclado.readLine();
+                out.writeUTF(username);
 
-            // Recebe o resultado da autenticação
-            String resposta = in.readUTF();
-            System.out.println("Resposta do servidor: " + resposta);
+                System.out.println("Digite a senha:");
+                String password = teclado.readLine();
+                out.writeUTF(password);
 
-            if (resposta.contains("Bem-vindo")) {
-/*                // Thread para leitura do servidor
-                Thread leitorServidor = new Thread(() -> {
-                    try {
-                        while (true) {
-                            String respostaServidor = in.readUTF(); // Bloqueia até receber resposta
-                            System.out.println("Servidor: " + respostaServidor);
-                        }
-                    } catch (IOException e) {
-                        System.out.println("Conexão com o servidor encerrada.");
-                    }
-                });
+                // Recebe o resultado da autenticação
+                String resposta = in.readUTF();
+                System.out.println("Resposta do servidor: " + resposta);
 
-                leitorServidor.start(); // Inicia a thread para leitura
-*/
-                // Loop principal para enviar comandos
+                if (resposta.contains("Registro bem-sucedido")) {
+                    // Continua o loop para permitir login após registro
+                } else if (resposta.contains("Bem-vindo")) {
+                    autenticado = true;
+                } else {
+                    // Falha no registro ou login, repete
+                }
+            }
+
+            if (autenticado) {
+                // Se chegou até aqui, o cliente está autenticado
                 while (true) {
                     String comando = "";
                     while (!(comando.equals("1")) && !(comando.equals("2")) && !(comando.equals("0"))) {
@@ -53,6 +54,7 @@ public class Cliente {
                         comando = teclado.readLine();
                     }
                     if (comando.equals("0")) {
+                        out.writeUTF("0");
                         break;
                     }
 
@@ -75,7 +77,7 @@ public class Cliente {
                         if (comandoTipo.equals("1")) {
                             System.out.println("Digite a chave:");
                             String chaveTexto = teclado.readLine();
-                            //byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
+                            // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
                             out.writeUTF(chaveTexto);
 
                             System.out.println("Digite o texto:");
@@ -90,11 +92,11 @@ public class Cliente {
                             int repeticoes = Integer.parseInt(repeticoesStr);
                             out.writeInt(repeticoes);
                             int i = 0;
-                            while (i<repeticoes) {
+                            while (i < repeticoes) {
                                 System.out.println("Digite a chave:");
                                 String chaveTexto = teclado.readLine();
-                                //byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
-                                //out.writeInt(chaveBytes.length); // Envia o tamanho do array de bytes
+                                // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
+                                // out.writeInt(chaveBytes.length); // Envia o tamanho do array de bytes
                                 out.writeUTF(chaveTexto);
 
                                 System.out.println("Digite o texto:");
@@ -111,7 +113,7 @@ public class Cliente {
                         if (comandoTipo.equals("1")) {
                             System.out.println("Digite a chave:");
                             String chaveTexto = teclado.readLine();
-                            //byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
+                            // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
                             out.writeUTF(chaveTexto);
 
                             int respostaTamanho = in.readInt(); // Lê o tamanho da resposta
@@ -122,8 +124,7 @@ public class Cliente {
                             } else {
                                 System.out.println("Chave não encontrada no servidor.");
                             }
-                        }
-                        else if (comandoTipo.equals("2")) {
+                        } else if (comandoTipo.equals("2")) {
                             System.out.println("Quantas chaves deseja consultar?");
                             int quantidade = Integer.parseInt(teclado.readLine());
                             out.writeInt(quantidade);
@@ -136,7 +137,7 @@ public class Cliente {
 
                             int tamanhoResposta = in.readInt();
                             System.out.println("Número de pares chave-valor encontrados: " + tamanhoResposta);
-                            
+
                             for (int i = 0; i < tamanhoResposta; i++) {
                                 String chave = in.readUTF();
                                 int valorTamanho = in.readInt();
@@ -147,18 +148,15 @@ public class Cliente {
                         }
                     }
                 }
-
-                //leitorServidor.interrupt(); // Interrompe a thread de leitura ao sair
             }
         } catch (EOFException e) {
             System.out.println("Servidor fechou a conexão.");
 
         } catch (SocketException e) {
             System.out.println("Erro de conexão. O servidor pode ter desconectado.");
-        
-        }catch (IOException e) {
+
+        } catch (IOException e) {
             e.printStackTrace();
         }
-        
     }
 }
