@@ -59,10 +59,14 @@ public class Cliente {
                     }
 
                     String comandoTipo = "";
-                    while (!(comandoTipo.equals("1")) && !(comandoTipo.equals("2")) && !(comandoTipo.equals("0"))) {
+                    while (!(comandoTipo.equals("1")) && !(comandoTipo.equals("2"))
+                            && !(comandoTipo.equals("3") && comando.equals("2")) && !(comandoTipo.equals("0"))) {
                         System.out.println("Escolha o tipo da operação:");
                         System.out.println("1 - Simples");
                         System.out.println("2 - Múltipla");
+                        if (comando.equals("2")) {
+                            System.out.println("3 - Condicional (getWhen)");
+                        }
                         System.out.println("0 - Sair");
                         comandoTipo = teclado.readLine();
                     }
@@ -144,6 +148,30 @@ public class Cliente {
                                 byte[] valorBytes = new byte[valorTamanho];
                                 in.readFully(valorBytes);
                                 System.out.println("Chave: " + chave + ", Valor: " + new String(valorBytes));
+                            }
+                        } else if (comandoTipo.equals("3")) {
+                            System.out.println("Digite a key (valor que você quer receber):");
+                            String key = teclado.readLine();
+                            out.writeUTF(key);
+
+                            System.out.println("Digite a keyCond (chave condicional):");
+                            String keyCond = teclado.readLine();
+                            out.writeUTF(keyCond);
+
+                            System.out.println("Digite o valor condicional (valueCond) para keyCond:");
+                            String valueCondStr = teclado.readLine();
+                            byte[] valueCondBytes = valueCondStr.getBytes();
+                            out.writeInt(valueCondBytes.length);
+                            out.write(valueCondBytes);
+
+                            // Fica bloqueado até o servidor retornar
+                            int respSize = in.readInt();
+                            if (respSize > 0) {
+                                byte[] respVal = new byte[respSize];
+                                in.readFully(respVal);
+                                System.out.println("Leitura condicional liberada. Valor = " + new String(respVal));
+                            } else {
+                                System.out.println("Valor da key inexistente ou interrupção.");
                             }
                         }
                     }

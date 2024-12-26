@@ -3,6 +3,7 @@ import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.Lock;
+import java.util.Arrays;
 
 public class ClienteHandler implements Runnable {
     private final Socket socket;
@@ -19,8 +20,7 @@ public class ClienteHandler implements Runnable {
 
         try (
                 DataInputStream in = new DataInputStream(socket.getInputStream());
-                DataOutputStream out = new DataOutputStream(socket.getOutputStream())
-        ) {
+                DataOutputStream out = new DataOutputStream(socket.getOutputStream())) {
             // Autenticação (login ou registro)
             while (!autenticado && (System.currentTimeMillis() - start) < TIMEOUT) {
                 try {
@@ -68,11 +68,12 @@ public class ClienteHandler implements Runnable {
                     lock.lock(); // Adquire o lock
                     try {
                         ServidorArmazenamento.getArmazenamento().put(chave, valor);
+                        ServidorArmazenamento.getDataChangedCondition().signalAll();
                     } finally {
                         lock.unlock(); // Libera o lock
-                    } 
+                    }
 
-                    //out.writeUTF("Par chave-valor armazenado com sucesso.");
+                    // out.writeUTF("Par chave-valor armazenado com sucesso.");
                     System.out.println("Escrita: [" + chave + "] = " + new String(valor));
                 }
 
@@ -82,21 +83,22 @@ public class ClienteHandler implements Runnable {
                     Lock lock = ServidorArmazenamento.getLock();
                     lock.lock(); // Adquire o lock
                     try {
-                        for (int i = 0; i < repeticoes; i++){
+                        for (int i = 0; i < repeticoes; i++) {
                             String chave = in.readUTF(); // Lê a chave
                             int tamanho = in.readInt(); // Lê o tamanho do array de bytes
                             byte[] valor = new byte[tamanho];
                             in.readFully(valor); // Lê os bytes do cliente
-                            
+
                             // Lock para garantir a segurança do acesso ao armazenamento
                             ServidorArmazenamento.getArmazenamento().put(chave, valor);
 
-                            //out.writeUTF("Par chave-valor armazenado com sucesso.");
+                            // out.writeUTF("Par chave-valor armazenado com sucesso.");
                             System.out.println("Escrita: [" + chave + "] = " + new String(valor));
                         }
+                        ServidorArmazenamento.getDataChangedCondition().signalAll();
                     } finally {
                         lock.unlock(); // Libera o lock
-                    } 
+                    }
                 }
             }
 
@@ -120,8 +122,7 @@ public class ClienteHandler implements Runnable {
                     } finally {
                         lock.unlock();
                     }
-                }
-                else if (comandoTipo.equals("2")) { // Leitura composta
+                } else if (comandoTipo.equals("2")) { // Leitura composta
                     int repeticoes = in.readInt(); // Número de chaves fornecidas pelo cliente~
                     Map<String, byte[]> resultados = new HashMap<>(); // Armazena os pares chave-valor
 
@@ -152,6 +153,41 @@ public class ClienteHandler implements Runnable {
                         out.writeInt(valor.length); // Envia o tamanho do valor
                         out.write(valor); // Envia os bytes do valor
                     }
+                } else if (comandoTipo.equals("3")) { // Leitura condicional
+                    // Ler os parâmetros do cliente
+                    String key = in.readUTF();
+                    String keyCond = in.readUTF();
+                    int condLength = in.readInt();
+                    byte[] valueCond = new byte[condLength];
+                    in.readFully(valueCond);
+
+                    Lock lock = ServidorArmazenamento.getLock();
+                    lock.lock();
+                    try {
+                        // Bloquear até que keyCond contenha valueCond
+                        while (true) {
+                            byte[] atual = ServidorArmazenamento.getArmazenamento().get(keyCond);
+                            if (atual != null && Arrays.equals(atual, valueCond)) {
+                                // Condição satisfeita
+                                byte[] valorKey = ServidorArmazenamento.getArmazenamento().get(key);
+                                if (valorKey == null) {
+                                    out.writeInt(0);
+                                } else {
+                                    out.writeInt(valorKey.length);
+                                    out.write(valorKey);
+                                }
+                                System.out.println("Leitura condicional: liberado para " + key);
+                                break;
+                            }
+                            // Esperar sinal
+                            ServidorArmazenamento.getDataChangedCondition().await();
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        out.writeInt(0);
+                    } finally {
+                        lock.unlock();
+                    }
                 }
             }
 
@@ -175,8 +211,7 @@ public class ClienteHandler implements Runnable {
                 out.writeUTF("Falha no registro. Usuário já existe.");
             }
             return false;
-        } 
-        else if ("login".equalsIgnoreCase(action)) {
+        } else if ("login".equalsIgnoreCase(action)) {
             if (ServidorUsuarios.authenticate(username, password)) {
                 out.writeUTF("Autenticação bem-sucedida. Bem-vindo!");
                 System.out.println("Cliente autenticado: " + username);
@@ -186,8 +221,7 @@ public class ClienteHandler implements Runnable {
                 System.out.println("Falha na autenticação para: " + username);
                 return false;
             }
-        } 
-        else {
+        } else {
             out.writeUTF("Ação inválida.");
             return false;
         }
