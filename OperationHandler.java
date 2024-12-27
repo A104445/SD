@@ -123,46 +123,46 @@ class OperationHandler implements Runnable {
                     } finally {
                         lockIn.unlock();
                     }
-                } else if (comandoTipo.equals("3")){
+                } else if (comandoTipo.equals("3")) {
                     System.out.println("Digite a key (valor que você quer receber):");
                     String key = teclado.readLine();
                     lockOut.lock();
-                    try{ 
-                            out.writeUTF(key);
+                    try { 
+                        out.writeUTF(key);
                     } finally {
                         lockOut.unlock();
                     }
-
+                
                     System.out.println("Digite a keyCond (chave condicional):");
                     String keyCond = teclado.readLine();
-
-                    try{ 
+                    lockOut.lock();  // Adiciona lock antes do uso de writeUTF
+                    try { 
                         out.writeUTF(keyCond);
                     } finally {
                         lockOut.unlock();
                     }
-
+                
                     System.out.println("Digite o valor condicional (valueCond) para keyCond:");
                     String valueCondStr = teclado.readLine();
                     byte[] valueCondBytes = valueCondStr.getBytes();
                     lockOut.lock();
-                    try{
-                    out.writeInt(valueCondBytes.length);
-                    out.write(valueCondBytes);
+                    try {
+                        out.writeInt(valueCondBytes.length);
+                        out.write(valueCondBytes);
                     } finally {
                         lockOut.unlock();
                     }
-
+                
                     lockIn.lock();
-                    try{
-                    int respSize = in.readInt();
-                    if (respSize > 0) {
-                        byte[] respVal = new byte[respSize];
-                        in.readFully(respVal);
-                        System.out.println("Leitura condicional liberada. Valor = " + new String(respVal));
-                    } else {
-                        System.out.println("Valor da key inexistente ou interrupção.");
-                    }
+                    try {
+                        int respSize = in.readInt();
+                        if (respSize > 0) {
+                            byte[] respVal = new byte[respSize];
+                            in.readFully(respVal);
+                            System.out.println("Leitura condicional liberada. Valor = " + new String(respVal));
+                        } else {
+                            System.out.println("Valor da key inexistente ou interrupção.");
+                        }
                     } finally {
                         lockIn.unlock();
                     }
