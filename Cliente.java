@@ -3,186 +3,79 @@ import java.net.*;
 
 public class Cliente {
     public static void main(String[] args) {
-        String host = "127.0.0.1"; // IP do servidor
-        int porta = 12345; // Porta do servidor
+        String host = "127.0.0.1";
+        int porta = 12345;
 
         try (Socket socket = new Socket(host, porta)) {
             System.out.println("Conectado ao servidor.");
 
-            // Streams binários
             DataInputStream in = new DataInputStream(socket.getInputStream());
             DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-            BufferedReader teclado = new BufferedReader(new InputStreamReader(System.in));
+            BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
 
-            // Comunicação com o servidor
             boolean autenticado = false;
             while (!autenticado) {
                 System.out.println("Deseja fazer 'login' ou 'register'?");
-                String action = teclado.readLine(); // "login" ou "register"
-                out.writeUTF(action);
+                String type = input.readLine();
+                out.writeUTF(type);
 
                 System.out.println("Digite o nome de usuário:");
-                String username = teclado.readLine();
+                String username = input.readLine();
                 out.writeUTF(username);
 
                 System.out.println("Digite a senha:");
-                String password = teclado.readLine();
+                String password = input.readLine();
                 out.writeUTF(password);
 
-                // Recebe o resultado da autenticação
                 String resposta = in.readUTF();
                 System.out.println("Resposta do servidor: " + resposta);
 
                 if (resposta.contains("Registro bem-sucedido")) {
-                    // Continua o loop para permitir login após registro
                 } else if (resposta.contains("Bem-vindo")) {
                     autenticado = true;
                 } else {
-                    // Falha no registro ou login, repete
                 }
             }
+
 
             if (autenticado) {
-                // Se chegou até aqui, o cliente está autenticado
                 while (true) {
-                    String comando = "";
-                    while (!(comando.equals("1")) && !(comando.equals("2")) && !(comando.equals("0"))) {
-                        System.out.println("Escolha o valor da operação a efetuar:");
-                        System.out.println("1 - Escrita");
-                        System.out.println("2 - Leitura");
-                        System.out.println("0 - Sair");
-                        comando = teclado.readLine();
-                    }
-                    if (comando.equals("0")) {
+                    System.out.println("Escolha uma operação:");
+                    System.out.println("1 - Nova operação");
+                    System.out.println("0 - Sair");
+                    String opcao = input.readLine();
+
+                    if (opcao.equals("0")) {
                         out.writeUTF("0");
                         break;
-                    }
+                    } else if (opcao.equals("1")) {
+                        System.out.println("Escolha o tipo de operação (1 - Escrita, 2 - Leitura): ");
+                        String type = input.readLine();
 
-                    String comandoTipo = "";
-                    while (!(comandoTipo.equals("1")) && !(comandoTipo.equals("2"))
-                            && !(comandoTipo.equals("3") && comando.equals("2")) && !(comandoTipo.equals("0"))) {
-                        System.out.println("Escolha o tipo da operação:");
-                        System.out.println("1 - Simples");
-                        System.out.println("2 - Múltipla");
-                        if (comando.equals("2")) {
-                            System.out.println("3 - Condicional (getWhen)");
+                        String subtype = "";
+                        if (type.equals("1")) {
+                            System.out.println("1 - Escrita simples\n2 - Escrita múltipla");
+                            subtype = input.readLine();
+                        } else if (type.equals("2")) {
+                            System.out.println("1 - Leitura simples\n2 - Leitura múltipla\n3 - Leitura condicional");
+                            subtype = input.readLine();
                         }
-                        System.out.println("0 - Sair");
-                        comandoTipo = teclado.readLine();
-                    }
 
-                    out.writeUTF(comando);
-                    out.writeUTF(comandoTipo);
+                        Thread operation = new Thread(new OperationHandler(in, out, type, subtype, input));
+                        operation.start();
 
-                    if (comandoTipo.equals("0")) {
-                        break;
-                    }
-                    if (comando.equals("1")) { // Escrita
-                        if (comandoTipo.equals("1")) {
-                            System.out.println("Digite a chave:");
-                            String chaveTexto = teclado.readLine();
-                            // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
-                            out.writeUTF(chaveTexto);
-
-                            System.out.println("Digite o texto:");
-                            String valorTexto = teclado.readLine();
-                            byte[] valorBytes = valorTexto.getBytes(); // Converte texto para bytes
-                            out.writeInt(valorBytes.length); // Envia o tamanho do array de bytes
-                            out.write(valorBytes); // Envia o array de bytes
+                        try {
+                            operation.join();
+                        } catch (InterruptedException e) {
+                            System.out.println("Thread de operação foi interrompida.");
+                            Thread.currentThread().interrupt();
                         }
-                        if (comandoTipo.equals("2")) {
-                            System.out.println("Digite a quantidade de mensagens a enviar:");
-                            String repeticoesStr = teclado.readLine();
-                            int repeticoes = Integer.parseInt(repeticoesStr);
-                            out.writeInt(repeticoes);
-                            int i = 0;
-                            while (i < repeticoes) {
-                                System.out.println("Digite a chave:");
-                                String chaveTexto = teclado.readLine();
-                                // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
-                                // out.writeInt(chaveBytes.length); // Envia o tamanho do array de bytes
-                                out.writeUTF(chaveTexto);
 
-                                System.out.println("Digite o texto:");
-                                String valorTexto = teclado.readLine();
-                                byte[] valorBytes = valorTexto.getBytes(); // Converte texto para bytes
-                                out.writeInt(valorBytes.length); // Envia o tamanho do array de bytes
-                                out.write(valorBytes); // Envia o array de bytes
-
-                                i++;
-                            }
-                        }
-                    }
-                    if (comando.equals("2")) { // Leitura
-                        if (comandoTipo.equals("1")) {
-                            System.out.println("Digite a chave:");
-                            String chaveTexto = teclado.readLine();
-                            // byte[] chaveBytes = chaveTexto.getBytes(); // Converte texto para bytes
-                            out.writeUTF(chaveTexto);
-
-                            int respostaTamanho = in.readInt(); // Lê o tamanho da resposta
-                            if (respostaTamanho > 0) {
-                                byte[] respostaBytes = new byte[respostaTamanho];
-                                in.readFully(respostaBytes); // Lê os bytes da resposta
-                                System.out.println("Resposta do servidor: " + new String(respostaBytes));
-                            } else {
-                                System.out.println("Chave não encontrada no servidor.");
-                            }
-                        } else if (comandoTipo.equals("2")) {
-                            System.out.println("Quantas chaves deseja consultar?");
-                            int quantidade = Integer.parseInt(teclado.readLine());
-                            out.writeInt(quantidade);
-
-                            for (int i = 0; i < quantidade; i++) {
-                                System.out.println("Digite a chave:");
-                                String chave = teclado.readLine();
-                                out.writeUTF(chave);
-                            }
-
-                            int tamanhoResposta = in.readInt();
-                            System.out.println("Número de pares chave-valor encontrados: " + tamanhoResposta);
-
-                            for (int i = 0; i < tamanhoResposta; i++) {
-                                String chave = in.readUTF();
-                                int valorTamanho = in.readInt();
-                                byte[] valorBytes = new byte[valorTamanho];
-                                in.readFully(valorBytes);
-                                System.out.println("Chave: " + chave + ", Valor: " + new String(valorBytes));
-                            }
-                        } else if (comandoTipo.equals("3")) {
-                            System.out.println("Digite a key (valor que você quer receber):");
-                            String key = teclado.readLine();
-                            out.writeUTF(key);
-
-                            System.out.println("Digite a keyCond (chave condicional):");
-                            String keyCond = teclado.readLine();
-                            out.writeUTF(keyCond);
-
-                            System.out.println("Digite o valor condicional (valueCond) para keyCond:");
-                            String valueCondStr = teclado.readLine();
-                            byte[] valueCondBytes = valueCondStr.getBytes();
-                            out.writeInt(valueCondBytes.length);
-                            out.write(valueCondBytes);
-
-                            // Fica bloqueado até o servidor retornar
-                            int respSize = in.readInt();
-                            if (respSize > 0) {
-                                byte[] respVal = new byte[respSize];
-                                in.readFully(respVal);
-                                System.out.println("Leitura condicional liberada. Valor = " + new String(respVal));
-                            } else {
-                                System.out.println("Valor da key inexistente ou interrupção.");
-                            }
-                        }
+                    } else {
+                        System.out.println("Opção inválida.");
                     }
                 }
             }
-        } catch (EOFException e) {
-            System.out.println("Servidor fechou a conexão.");
-
-        } catch (SocketException e) {
-            System.out.println("Erro de conexão. O servidor pode ter desconectado.");
-
         } catch (IOException e) {
             e.printStackTrace();
         }

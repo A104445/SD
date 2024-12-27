@@ -104,7 +104,7 @@ public class ClienteHandler implements Runnable {
 
             if (comando.equals("2")) { // Leitura
                 if (comandoTipo.equals("1")) { // Simples
-                    String chave = in.readUTF(); // Lê a chave
+                    String chave = in.readUTF(); // Lê a chave           
 
                     // Lock para garantir segurança no acesso ao armazenamento
                     Lock lock = ServidorArmazenamento.getLock();
