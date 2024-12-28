@@ -10,7 +10,8 @@ class OperationHandler implements Runnable {
     private final ReentrantLock lockIn = new ReentrantLock();
     private final ReentrantLock lockOut = new ReentrantLock();
 
-    public OperationHandler(DataInputStream in, DataOutputStream out, String tipo, String comandoTipo, BufferedReader teclado) {
+    public OperationHandler(DataInputStream in, DataOutputStream out, String tipo, String comandoTipo,
+            BufferedReader teclado) {
         this.in = in;
         this.out = out;
         this.tipo = tipo;
@@ -67,7 +68,13 @@ class OperationHandler implements Runnable {
 
     private void multiPut() throws IOException {
         System.out.println("Digite a quantidade de mensagens:");
-        int repeticoes = Integer.parseInt(teclado.readLine());
+        int repeticoes = 0;
+        try {
+            repeticoes = Integer.parseInt(teclado.readLine());
+        } catch (Exception e) {
+            System.out.println("The value must be an integer value.");
+            return;
+        }
         lockOut.lock();
         try {
             out.writeInt(repeticoes);
@@ -112,7 +119,13 @@ class OperationHandler implements Runnable {
 
     private void multiGet() throws IOException {
         System.out.println("Quantas chaves deseja consultar?");
-        int quantidade = Integer.parseInt(teclado.readLine());
+        int quantidade = 0;
+        try {
+            Integer.parseInt(teclado.readLine());   
+        } catch (Exception e) {
+            System.out.println("The value must be an integer value.");
+            return;
+        }
         lockOut.lock();
         try {
             out.writeInt(quantidade);
