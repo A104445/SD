@@ -123,7 +123,7 @@ class OperationHandler implements Runnable {
         System.out.println("Quantas chaves deseja consultar?");
         int quantidade = 0;
         try {
-            Integer.parseInt(teclado.readLine());   
+            quantidade = Integer.parseInt(teclado.readLine());   
         } catch (Exception e) {
             System.out.println("The value must be an integer value.");
             return;
